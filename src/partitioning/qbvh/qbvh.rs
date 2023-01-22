@@ -138,25 +138,25 @@ impl QbvhNode {
     }
 
     #[inline]
-    /// Does the AABB of this node needs to be updated?
+    /// Does the Aabb of this node needs to be updated?
     pub fn is_dirty(&self) -> bool {
         self.flags.contains(QbvhNodeFlags::DIRTY)
     }
 
     #[inline]
-    /// Sets if the AABB of this node needs to be updated.
+    /// Sets if the Aabb of this node needs to be updated.
     pub fn set_dirty(&mut self, dirty: bool) {
         self.flags.set(QbvhNodeFlags::DIRTY, dirty);
     }
 
     #[inline]
-    /// Was the AABB of this node changed since the last rebalancing?
+    /// Was the Aabb of this node changed since the last rebalancing?
     pub fn is_changed(&self) -> bool {
         self.flags.contains(QbvhNodeFlags::CHANGED)
     }
 
     #[inline]
-    /// Sets if the AABB of this node changed since the last rebalancing.
+    /// Sets if the Aabb of this node changed since the last rebalancing.
     pub fn set_changed(&mut self, changed: bool) {
         self.flags.set(QbvhNodeFlags::CHANGED, changed);
     }

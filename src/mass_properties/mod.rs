@@ -25,6 +25,7 @@ mod mass_properties_trimesh2d;
 #[cfg(feature = "dim3")]
 #[cfg(feature = "std")]
 mod mass_properties_trimesh3d;
+mod mass_properties_voxels;
 
 /// Free functions for some special-cases of mass-properties computation.
 pub mod details {

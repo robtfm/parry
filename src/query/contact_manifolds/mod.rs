@@ -32,6 +32,13 @@ pub use self::contact_manifolds_pfm_pfm::{
 pub use self::contact_manifolds_trimesh_shape::{
     contact_manifolds_trimesh_shape, contact_manifolds_trimesh_shape_shapes,
 };
+pub use self::contact_manifolds_voxels_ball::contact_manifolds_voxels_ball_shapes;
+pub use self::contact_manifolds_voxels_shape::{
+    contact_manifolds_voxels_shape, contact_manifolds_voxels_shape_shapes,
+};
+pub use self::contact_manifolds_voxels_voxels::{
+    contact_manifolds_voxels_voxels, contact_manifolds_voxels_voxels_shapes,
+};
 pub use self::contact_manifolds_workspace::{
     ContactManifoldsWorkspace, TypedWorkspaceData, WorkspaceData,
 };
@@ -43,6 +50,7 @@ pub(self) use {
     self::contact_manifolds_heightfield_shape::HeightFieldShapeContactManifoldsWorkspace,
     self::contact_manifolds_trimesh_shape::TriMeshShapeContactManifoldsWorkspace,
     self::internal_edges_fixer::InternalEdgesFixer,
+    self::contact_manifolds_voxels_ball::detect_hit_voxel_ball,
 };
 
 mod contact_manifold;
@@ -59,5 +67,8 @@ mod contact_manifolds_heightfield_composite_shape;
 mod contact_manifolds_heightfield_shape;
 mod contact_manifolds_pfm_pfm;
 mod contact_manifolds_trimesh_shape;
+mod contact_manifolds_voxels_ball;
+mod contact_manifolds_voxels_shape;
+mod contact_manifolds_voxels_voxels;
 mod contact_manifolds_workspace;
 mod internal_edges_fixer;

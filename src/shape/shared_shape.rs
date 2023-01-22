@@ -5,11 +5,12 @@ use crate::shape::ConvexPolygon;
 use crate::shape::DeserializableTypedShape;
 use crate::shape::{
     Ball, Capsule, Compound, Cuboid, HalfSpace, HeightField, Polyline, RoundShape, Segment, Shape,
-    TriMesh, TriMeshFlags, Triangle,
+    TriMesh, TriMeshFlags, Triangle, Voxels
 };
 #[cfg(feature = "dim3")]
 use crate::shape::{Cone, ConvexPolyhedron, Cylinder};
 use crate::transformation::vhacd::{VHACDParameters, VHACD};
+use crate::transformation::voxelization::{FillMode, VoxelSet};
 use na::Unit;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -196,6 +197,65 @@ impl SharedShape {
         flags: TriMeshFlags,
     ) -> Self {
         SharedShape(Arc::new(TriMesh::with_flags(vertices, indices, flags)))
+    }
+
+    pub fn voxels(centers: &[Point<Real>], voxel_size: Real) -> Self {
+        let shape = Voxels::from_points(centers, voxel_size);
+        SharedShape::new(shape)
+    }
+
+    /// Initializes a compound shape obtained from the decomposition of the given trimesh (in 3D)
+    /// or polyline (in 2D) into voxelized convex parts.
+    pub fn voxelized_mesh(
+        vertices: &[Point<Real>],
+        indices: &[[u32; DIM]],
+        voxel_size: Real,
+        fill_mode: FillMode,
+    ) -> Self {
+        let mut voxels = VoxelSet::with_voxel_size(vertices, indices, voxel_size, fill_mode, true);
+        voxels.compute_bb();
+        Self::from_voxel_set(&voxels)
+    }
+
+    fn from_voxel_set(vox_set: &VoxelSet) -> Self {
+        let dims = (vox_set.max_bb_voxels() - vox_set.min_bb_voxels()) + Vector::repeat(1);
+        let centers: Vec<_> = vox_set
+            .voxels()
+            .iter()
+            .map(|v| vox_set.get_voxel_point(v))
+            .collect();
+        let shape = Voxels::from_points(&centers, vox_set.scale);
+        SharedShape::new(shape)
+    }
+
+    /// Initializes a compound shape obtained from the decomposition of the given trimesh (in 3D)
+    /// or polyline (in 2D) into voxelized convex parts.
+    pub fn voxelized_convex_decomposition(
+        vertices: &[Point<Real>],
+        indices: &[[u32; DIM]],
+    ) -> Vec<Self> {
+        Self::voxelized_convex_decomposition_with_params(
+            vertices,
+            indices,
+            &VHACDParameters::default(),
+        )
+    }
+
+    /// Initializes a compound shape obtained from the decomposition of the given trimesh (in 3D)
+    /// or polyline (in 2D) into voxelized convex parts.
+    pub fn voxelized_convex_decomposition_with_params(
+        vertices: &[Point<Real>],
+        indices: &[[u32; DIM]],
+        params: &VHACDParameters,
+    ) -> Vec<Self> {
+        let mut parts = vec![];
+        let decomp = VHACD::decompose(params, &vertices, &indices, true);
+
+        for vox_set in decomp.voxel_parts() {
+            parts.push(Self::from_voxel_set(vox_set));
+        }
+
+        parts
     }
 
     /// Initializes a compound shape obtained from the decomposition of the given trimesh (in 3D) or

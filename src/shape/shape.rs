@@ -8,7 +8,7 @@ use crate::shape::SharedShape;
 use crate::shape::{composite_shape::SimdCompositeShape, Compound, HeightField, Polyline, TriMesh};
 use crate::shape::{
     Ball, Capsule, Cuboid, FeatureId, HalfSpace, PolygonalFeatureMap, RoundCuboid, RoundShape,
-    RoundTriangle, Segment, SupportMap, Triangle,
+    RoundTriangle, Segment, SupportMap, Triangle, Voxels,
 };
 #[cfg(feature = "dim3")]
 use crate::shape::{Cone, Cylinder, RoundCone, RoundCylinder};
@@ -38,6 +38,8 @@ pub enum ShapeType {
     Segment,
     /// A triangle shape.
     Triangle,
+    /// A shape defined as a voxel grid.
+    Voxels,
     /// A triangle mesh shape.
     TriMesh,
     /// A set of segments.
@@ -99,6 +101,8 @@ pub enum TypedShape<'a> {
     Segment(&'a Segment),
     /// A triangle shape.
     Triangle(&'a Triangle),
+    /// A shape defined as a voxel grid.
+    Voxels(&'a Voxels),
     /// A triangle mesh shape.
     #[cfg(feature = "std")]
     TriMesh(&'a TriMesh),
@@ -169,6 +173,8 @@ pub(crate) enum DeserializableTypedShape {
     Segment(Segment),
     /// A triangle shape.
     Triangle(Triangle),
+    /// A shape defined as a voxel grid.
+    Voxels(Voxels),
     /// A triangle mesh shape.
     #[cfg(feature = "std")]
     TriMesh(TriMesh),
@@ -234,6 +240,7 @@ impl DeserializableTypedShape {
             DeserializableTypedShape::Capsule(s) => Some(SharedShape::new(s)),
             DeserializableTypedShape::Segment(s) => Some(SharedShape::new(s)),
             DeserializableTypedShape::Triangle(s) => Some(SharedShape::new(s)),
+            DeserializableTypedShape::Voxels(s) => Some(SharedShape::new(s)),
             #[cfg(feature = "std")]
             DeserializableTypedShape::TriMesh(s) => Some(SharedShape::new(s)),
             #[cfg(feature = "std")]
@@ -418,6 +425,15 @@ impl dyn Shape {
     }
     /// Converts this abstract shape to a mutable triangle, if it is one.
     pub fn as_triangle_mut(&mut self) -> Option<&mut Triangle> {
+        self.downcast_mut()
+    }
+
+    /// Converts this abstract shape to voxels, if it is one.
+    pub fn as_voxels(&self) -> Option<&Voxels> {
+        self.downcast_ref()
+    }
+    /// Converts this abstract shape to mutable voxels, if it is one.
+    pub fn as_voxels_mut(&mut self) -> Option<&mut Voxels> {
         self.downcast_mut()
     }
 
@@ -1323,6 +1339,41 @@ impl Shape for HalfSpace {
 
     fn as_typed_shape(&self) -> TypedShape {
         TypedShape::HalfSpace(self)
+    }
+}
+
+#[cfg(feature = "std")]
+impl Shape for Voxels {
+    fn compute_local_aabb(&self) -> Aabb {
+        self.local_aabb()
+    }
+
+    fn compute_local_bounding_sphere(&self) -> BoundingSphere {
+        self.local_bounding_sphere()
+    }
+
+    fn clone_box(&self) -> Box<dyn Shape> {
+        Box::new(self.clone())
+    }
+
+    fn mass_properties(&self, density: Real) -> MassProperties {
+        MassProperties::from_voxels(density, self)
+    }
+
+    fn shape_type(&self) -> ShapeType {
+        ShapeType::Voxels
+    }
+
+    fn as_typed_shape(&self) -> TypedShape {
+        TypedShape::Voxels(self)
+    }
+
+    fn ccd_thickness(&self) -> Real {
+        self.scale
+    }
+
+    fn ccd_angular_thickness(&self) -> Real {
+        Real::frac_pi_2()
     }
 }
 

@@ -159,6 +159,14 @@ impl Aabb {
         Aabb::new(center + (-ws_half_extents), center + ws_half_extents)
     }
 
+    /// Computes the Aabb bounding `self` translated by `translation`.
+    #[inline]
+    pub fn translated(mut self, translation: &Vector<Real>) -> Self {
+        self.mins += translation;
+        self.maxs += translation;
+        self
+    }
+
     #[inline]
     pub fn scaled(self, scale: &Vector<Real>) -> Self {
         let a = self.mins.coords.component_mul(&scale);
@@ -202,6 +210,31 @@ impl Aabb {
         }
 
         Some(result)
+    }
+
+    /// Computes two AABBs for the intersection between two translated and rotated AABBs.
+    ///
+    /// This method returns two AABBs: the first is expressed in the local-space of `self`,
+    /// and the second is expressed in the local-space of `aabb2`.
+    pub fn aligned_intersections(
+        &self,
+        pos12: &Isometry<Real>,
+        aabb2: &Self,
+    ) -> Option<(Aabb, Aabb)> {
+        let pos21 = pos12.inverse();
+
+        let aabb2_1 = aabb2.transform_by(pos12);
+        let inter1_1 = self.intersection(&aabb2_1)?;
+        let inter1_2 = inter1_1.transform_by(&pos21);
+
+        let aabb1_2 = self.transform_by(&pos21);
+        let inter2_2 = aabb2.intersection(&aabb1_2)?;
+        let inter2_1 = inter2_2.transform_by(pos12);
+
+        Some((
+            inter1_1.intersection(&inter2_1)?,
+            inter1_2.intersection(&inter2_2)?,
+        ))
     }
 
     /// Returns the difference between this Aabb and `rhs`.

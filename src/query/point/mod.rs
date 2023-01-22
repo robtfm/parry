@@ -31,3 +31,4 @@ mod point_support_map;
 #[cfg(feature = "dim3")]
 mod point_tetrahedron;
 mod point_triangle;
+mod point_voxels;
