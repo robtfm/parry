@@ -264,8 +264,8 @@ impl VHACD {
                     &mut right_ch_pts,
                     &mut left_ch_pts,
                 );
-                right_ch = convex_hull(&right_ch_pts);
-                left_ch = convex_hull(&left_ch_pts);
+                right_ch = convex_hull(&right_ch_pts)?;
+                left_ch = convex_hull(&left_ch_pts)?;
             } else {
                 on_surface_voxels.clip(plane, &mut right_voxels, &mut left_voxels);
                 right_ch = right_voxels.compute_convex_hull(convex_hull_downsampling)?;
@@ -597,20 +597,20 @@ fn clip_mesh(
 }
 
 #[cfg(feature = "dim2")]
-fn convex_hull(vertices: &[Point<Real>]) -> Vec<Point<Real>> {
+fn convex_hull(vertices: &[Point<Real>]) -> Result<Vec<Point<Real>>, ConvexHullError> {
     if vertices.len() > 1 {
-        crate::transformation::convex_hull(vertices)
+        Ok(crate::transformation::convex_hull(vertices))
     } else {
-        Vec::new()
+        Ok(Vec::new())
     }
 }
 
 #[cfg(feature = "dim3")]
-fn convex_hull(vertices: &[Point<Real>]) -> (Vec<Point<Real>>, Vec<[u32; DIM]>) {
+fn convex_hull(vertices: &[Point<Real>]) -> Result<(Vec<Point<Real>>, Vec<[u32; DIM]>), ConvexHullError> {
     if vertices.len() > 2 {
-        crate::transformation::convex_hull(vertices)
+        crate::transformation::try_convex_hull(vertices)
     } else {
-        (Vec::new(), Vec::new())
+        Ok((Vec::new(), Vec::new()))
     }
 }
 
