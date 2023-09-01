@@ -1,4 +1,4 @@
-use crate::math::{Isometry, Point, Real, Vector, DIM};
+use crate::{math::{Isometry, Point, Real, Vector, DIM}, transformation::ConvexHullError};
 #[cfg(feature = "dim2")]
 use crate::shape::ConvexPolygon;
 #[cfg(feature = "serde-serialize")]
@@ -200,7 +200,7 @@ impl SharedShape {
 
     /// Initializes a compound shape obtained from the decomposition of the given trimesh (in 3D) or
     /// polyline (in 2D) into convex parts.
-    pub fn convex_decomposition(vertices: &[Point<Real>], indices: &[[u32; DIM]]) -> Self {
+    pub fn convex_decomposition(vertices: &[Point<Real>], indices: &[[u32; DIM]]) -> Result<Self, ConvexHullError> {
         Self::convex_decomposition_with_params(vertices, indices, &VHACDParameters::default())
     }
 
@@ -210,7 +210,7 @@ impl SharedShape {
         vertices: &[Point<Real>],
         indices: &[[u32; DIM]],
         border_radius: Real,
-    ) -> Self {
+    ) -> Result<Self, ConvexHullError> {
         Self::round_convex_decomposition_with_params(
             vertices,
             indices,
@@ -225,25 +225,25 @@ impl SharedShape {
         vertices: &[Point<Real>],
         indices: &[[u32; DIM]],
         params: &VHACDParameters,
-    ) -> Self {
+    ) -> Result<Self, ConvexHullError> {
         let mut parts = vec![];
-        let decomp = VHACD::decompose(params, vertices, indices, true);
+        let decomp = VHACD::decompose(params, vertices, indices, true)?;
 
         #[cfg(feature = "dim2")]
-        for vertices in decomp.compute_exact_convex_hulls(vertices, indices) {
+        for vertices in decomp.compute_exact_convex_hulls(vertices, indices)? {
             if let Some(convex) = Self::convex_polyline(vertices) {
                 parts.push((Isometry::identity(), convex));
             }
         }
 
         #[cfg(feature = "dim3")]
-        for (vertices, indices) in decomp.compute_exact_convex_hulls(vertices, indices) {
+        for (vertices, indices) in decomp.compute_exact_convex_hulls(vertices, indices)? {
             if let Some(convex) = Self::convex_mesh(vertices, &indices) {
                 parts.push((Isometry::identity(), convex));
             }
         }
 
-        Self::compound(parts)
+        Ok(Self::compound(parts))
     }
 
     /// Initializes a compound shape obtained from the decomposition of the given trimesh (in 3D) or
@@ -253,25 +253,25 @@ impl SharedShape {
         indices: &[[u32; DIM]],
         params: &VHACDParameters,
         border_radius: Real,
-    ) -> Self {
+    ) -> Result<Self, ConvexHullError> {
         let mut parts = vec![];
-        let decomp = VHACD::decompose(params, vertices, indices, true);
+        let decomp = VHACD::decompose(params, vertices, indices, true).unwrap();
 
         #[cfg(feature = "dim2")]
-        for vertices in decomp.compute_exact_convex_hulls(vertices, indices) {
+        for vertices in decomp.compute_exact_convex_hulls(vertices, indices)? {
             if let Some(convex) = Self::round_convex_polyline(vertices, border_radius) {
                 parts.push((Isometry::identity(), convex));
             }
         }
 
         #[cfg(feature = "dim3")]
-        for (vertices, indices) in decomp.compute_exact_convex_hulls(vertices, indices) {
+        for (vertices, indices) in decomp.compute_exact_convex_hulls(vertices, indices)? {
             if let Some(convex) = Self::round_convex_mesh(vertices, &indices, border_radius) {
                 parts.push((Isometry::identity(), convex));
             }
         }
 
-        Self::compound(parts)
+        Ok(Self::compound(parts))
     }
 
     /// Creates a new shared shape that is the convex-hull of the given points.

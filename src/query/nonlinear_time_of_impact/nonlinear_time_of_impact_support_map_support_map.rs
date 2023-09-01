@@ -198,7 +198,10 @@ where
                     break;
                 }
             }
-            ClosestPoints::Disjoint => unreachable!(),
+            ClosestPoints::Disjoint => {
+                result.status = TOIStatus::Failed;
+                break;
+            }
         }
     }
 

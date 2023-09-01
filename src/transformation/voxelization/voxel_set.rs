@@ -17,7 +17,7 @@
 // > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use super::{FillMode, VoxelizedVolume};
-use crate::bounding_volume::Aabb;
+use crate::{bounding_volume::Aabb, transformation::ConvexHullError};
 use crate::math::{Matrix, Point, Real, Vector, DIM};
 use crate::transformation::vhacd::CutPlane;
 use std::sync::Arc;
@@ -185,7 +185,7 @@ impl VoxelSet {
         &self,
         points: &[Point<Real>],
         indices: &[[u32; DIM]],
-    ) -> Vec<Point<Real>> {
+    ) -> Result<Vec<Point<Real>>, ConvexHullError> {
         self.do_compute_exact_convex_hull(points, indices)
     }
 
@@ -198,7 +198,7 @@ impl VoxelSet {
         &self,
         points: &[Point<Real>],
         indices: &[[u32; DIM]],
-    ) -> (Vec<Point<Real>>, Vec<[u32; DIM]>) {
+    ) -> Result<(Vec<Point<Real>>, Vec<[u32; DIM]>), ConvexHullError> {
         self.do_compute_exact_convex_hull(points, indices)
     }
 
@@ -206,7 +206,7 @@ impl VoxelSet {
         &self,
         points: &[Point<Real>],
         indices: &[[u32; DIM]],
-    ) -> ConvexHull {
+    ) -> Result<ConvexHull, ConvexHullError> {
         assert!(!self.intersections.is_empty(),
                 "Cannot compute exact convex hull without voxel-to-primitives-map. Consider passing voxel_to_primitives_map = true to the voxelizer.");
         let mut surface_points = Vec::new();
@@ -350,7 +350,7 @@ impl VoxelSet {
     ///   regular intervals. Useful to save some computation times if an exact result isn't need.
     ///   Use `0` to make sure no voxel is being ignored.
     #[cfg(feature = "dim2")]
-    pub fn compute_convex_hull(&self, sampling: u32) -> Vec<Point<Real>> {
+    pub fn compute_convex_hull(&self, sampling: u32) -> Result<Vec<Point<Real>>, ConvexHullError> {
         let mut points = Vec::new();
 
         // Grab all the points.
@@ -367,6 +367,8 @@ impl VoxelSet {
         convex_hull(&points)
     }
 
+ 
+
     /// Compute the convex-hull of the voxels in this set.
     ///
     /// # Parameters
@@ -374,7 +376,7 @@ impl VoxelSet {
     ///   regular intervals. Useful to save some computation times if an exact result isn't need.
     ///   Use `0` to make sure no voxel is being ignored.
     #[cfg(feature = "dim3")]
-    pub fn compute_convex_hull(&self, sampling: u32) -> (Vec<Point<Real>>, Vec<[u32; DIM]>) {
+    pub fn compute_convex_hull(&self, sampling: u32) -> Result<(Vec<Point<Real>>, Vec<[u32; DIM]>), ConvexHullError> {
         let mut points = Vec::new();
 
         // Grab all the points.
@@ -613,19 +615,19 @@ impl VoxelSet {
 }
 
 #[cfg(feature = "dim2")]
-fn convex_hull(vertices: &[Point<Real>]) -> Vec<Point<Real>> {
+fn convex_hull(vertices: &[Point<Real>]) -> Result<Vec<Point<Real>>, ConvexHullError> {
     if vertices.len() > 1 {
-        crate::transformation::convex_hull(vertices)
+        Ok(crate::transformation::convex_hull(vertices))
     } else {
-        Vec::new()
+        Ok(Vec::new())
     }
 }
 
 #[cfg(feature = "dim3")]
-fn convex_hull(vertices: &[Point<Real>]) -> (Vec<Point<Real>>, Vec<[u32; DIM]>) {
+fn convex_hull(vertices: &[Point<Real>]) -> Result<(Vec<Point<Real>>, Vec<[u32; DIM]>), ConvexHullError> {
     if vertices.len() > 2 {
-        crate::transformation::convex_hull(vertices)
+        crate::transformation::try_convex_hull(vertices)
     } else {
-        (Vec::new(), Vec::new())
+        Ok((Vec::new(), Vec::new()))
     }
 }

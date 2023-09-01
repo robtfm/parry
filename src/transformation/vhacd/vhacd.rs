@@ -16,7 +16,7 @@
 // >
 // > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::math::{Point, Real, Vector, DIM};
+use crate::{math::{Point, Real, Vector, DIM}, transformation::ConvexHullError};
 use crate::transformation::vhacd::VHACDParameters;
 use crate::transformation::voxelization::{VoxelSet, VoxelizedVolume};
 use std::sync::Arc;
@@ -59,7 +59,7 @@ impl VHACD {
         points: &[Point<Real>],
         indices: &[[u32; DIM]],
         keep_voxel_to_primitives_map: bool,
-    ) -> Self {
+    ) -> Result<Self, ConvexHullError> {
         // if params.project_hull_vertices || params.fill_mode == FillMode::RAYCAST_FILL {
         //     self.raycast_mesh =
         //         RaycastMesh::create_raycast_mesh(num_points, points, num_triangles, triangles);
@@ -74,18 +74,18 @@ impl VHACD {
             // &self.raycast_mesh,
         );
 
-        let mut result = Self::from_voxels(params, voxelized.into());
+        let mut result = Self::from_voxels(params, voxelized.into())?;
 
         let primitive_classes = Arc::new(result.classify_primitives(indices.len()));
         for part in &mut result.voxel_parts {
             part.primitive_classes = primitive_classes.clone();
         }
 
-        result
+        Ok(result)
     }
 
     /// Perform an approximate convex decomposition of a set of voxels.
-    pub fn from_voxels(params: &VHACDParameters, voxels: VoxelSet) -> Self {
+    pub fn from_voxels(params: &VHACDParameters, voxels: VoxelSet) -> Result<Self, ConvexHullError> {
         let mut result = Self {
             // raycast_mesh: None,
             voxel_parts: Vec::new(),
@@ -93,8 +93,8 @@ impl VHACD {
             max_concavity: -Real::MAX,
         };
 
-        result.do_compute_acd(params, voxels);
-        result
+        result.do_compute_acd(params, voxels)?;
+        Ok(result)
     }
 
     /// The almost-convex voxelized parts computed by the VHACD algorithm.
@@ -226,7 +226,7 @@ impl VHACD {
         beta: Real,
         convex_hull_downsampling: u32,
         params: &VHACDParameters,
-    ) -> (CutPlane, Real) {
+    ) -> Result<(CutPlane, Real), ConvexHullError> {
         let mut best_plane = planes[0];
         let mut min_concavity = Real::MAX;
         let mut i_best = -1;
@@ -268,8 +268,8 @@ impl VHACD {
                 left_ch = convex_hull(&left_ch_pts);
             } else {
                 on_surface_voxels.clip(plane, &mut right_voxels, &mut left_voxels);
-                right_ch = right_voxels.compute_convex_hull(convex_hull_downsampling);
-                left_ch = left_voxels.compute_convex_hull(convex_hull_downsampling);
+                right_ch = right_voxels.compute_convex_hull(convex_hull_downsampling)?;
+                left_ch = left_voxels.compute_convex_hull(convex_hull_downsampling)?;
             }
 
             let volume_left_ch = compute_volume(&left_ch);
@@ -295,7 +295,7 @@ impl VHACD {
             }
         }
 
-        (best_plane, min_concavity)
+        Ok((best_plane, min_concavity))
     }
 
     fn process_primitive_set(
@@ -305,10 +305,10 @@ impl VHACD {
         parts: &mut Vec<VoxelSet>,
         temp: &mut Vec<VoxelSet>,
         mut voxels: VoxelSet,
-    ) {
+    ) -> Result<(), ConvexHullError> {
         let volume = voxels.compute_volume(); // Compute the volume for this primitive set
         voxels.compute_bb(); // Compute the bounding box for this primitive set.
-        let voxels_convex_hull = voxels.compute_convex_hull(params.convex_hull_downsampling); // Generate the convex hull for this primitive set.
+        let voxels_convex_hull = voxels.compute_convex_hull(params.convex_hull_downsampling)?; // Generate the convex hull for this primitive set.
 
         // Compute the volume of the convex hull
         let volume_ch = compute_volume(&voxels_convex_hull);
@@ -344,7 +344,7 @@ impl VHACD {
                 concavity * params.beta,
                 params.convex_hull_downsampling,
                 params,
-            );
+            )?;
 
             if params.plane_downsampling > 1 || params.convex_hull_downsampling > 1 {
                 let mut planes_ref = Vec::new();
@@ -366,7 +366,7 @@ impl VHACD {
                     concavity * params.beta,
                     1, // convex_hull_downsampling = 1
                     params,
-                );
+                )?;
 
                 best_plane = best.0;
                 min_concavity = best.1;
@@ -386,9 +386,11 @@ impl VHACD {
         } else {
             parts.push(voxels);
         }
+
+        Ok(())
     }
 
-    fn do_compute_acd(&mut self, params: &VHACDParameters, mut voxels: VoxelSet) {
+    fn do_compute_acd(&mut self, params: &VHACDParameters, mut voxels: VoxelSet) -> Result<(), ConvexHullError> {
         let intersections = voxels.intersections.clone();
         let mut input_parts = Vec::new();
         let mut parts = Vec::new();
@@ -432,7 +434,7 @@ impl VHACD {
                     &mut parts,
                     &mut temp,
                     input_part,
-                );
+                )?;
                 first_iteration = false;
             }
 
@@ -450,6 +452,8 @@ impl VHACD {
         for part in &mut self.voxel_parts {
             part.intersections = intersections.clone();
         }
+
+        Ok(())
     }
 
     // Returns a vector such that `result[i]` gives the index of the the voxelized convex part that
@@ -512,7 +516,7 @@ impl VHACD {
         &self,
         points: &[Point<Real>],
         indices: &[[u32; DIM]],
-    ) -> Vec<Vec<Point<Real>>> {
+    ) -> Result<Vec<Vec<Point<Real>>>, ConvexHullError> {
         self.voxel_parts
             .iter()
             .map(|part| part.compute_exact_convex_hull(points, indices))
@@ -529,7 +533,7 @@ impl VHACD {
         &self,
         points: &[Point<Real>],
         indices: &[[u32; DIM]],
-    ) -> Vec<(Vec<Point<Real>>, Vec<[u32; DIM]>)> {
+    ) -> Result<Vec<(Vec<Point<Real>>, Vec<[u32; DIM]>)>, ConvexHullError> {
         self.voxel_parts
             .iter()
             .map(|part| part.compute_exact_convex_hull(points, indices))
@@ -542,7 +546,7 @@ impl VHACD {
     /// Use `compute_exact_convex_hulls` instead if the original polyline/trimesh geometry
     /// needs to be taken into account.
     #[cfg(feature = "dim2")]
-    pub fn compute_convex_hulls(&self, downsampling: u32) -> Vec<Vec<Point<Real>>> {
+    pub fn compute_convex_hulls(&self, downsampling: u32) -> Result<Vec<Vec<Point<Real>>>, ConvexHullError> {
         let downsampling = downsampling.max(1);
         self.voxel_parts
             .iter()
@@ -559,7 +563,7 @@ impl VHACD {
     pub fn compute_convex_hulls(
         &self,
         downsampling: u32,
-    ) -> Vec<(Vec<Point<Real>>, Vec<[u32; DIM]>)> {
+    ) -> Result<Vec<(Vec<Point<Real>>, Vec<[u32; DIM]>)>, ConvexHullError> {
         let downsampling = downsampling.max(1);
         self.voxel_parts
             .iter()
