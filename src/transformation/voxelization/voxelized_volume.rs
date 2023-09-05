@@ -16,7 +16,7 @@
 // >
 // > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::bounding_volume::Aabb;
+use crate::{bounding_volume::Aabb, transformation::ConvexHullError};
 use crate::math::{Point, Real, Vector, DIM};
 use crate::query;
 use crate::transformation::voxelization::{Voxel, VoxelSet};
@@ -135,7 +135,7 @@ impl VoxelizedVolume {
         resolution: u32,
         fill_mode: FillMode,
         keep_voxel_to_primitives_map: bool,
-    ) -> Self {
+    ) -> Result<Self, ConvexHullError> {
         let mut result = VoxelizedVolume {
             resolution: [0; DIM],
             origin: Point::origin(),
@@ -146,7 +146,7 @@ impl VoxelizedVolume {
         };
 
         if points.is_empty() {
-            return result;
+            return Ok(result);
         }
 
         let aabb = crate::bounding_volume::details::local_point_cloud_aabb(points);
@@ -209,9 +209,13 @@ impl VoxelizedVolume {
                 #[cfg(feature = "dim3")]
                 let k = (tri_pts[c].z + 0.5) as u32;
 
-                assert!(i < result.resolution[0] && j < result.resolution[1]);
+                if !(i < result.resolution[0] && j < result.resolution[1]) {
+                    return Err(ConvexHullError::InternalError("assertion failed"))
+                }
                 #[cfg(feature = "dim3")]
-                assert!(k < result.resolution[2]);
+                if !(k < result.resolution[2]) {
+                    return Err(ConvexHullError::InternalError("assertion failed"))
+                }
 
                 #[cfg(feature = "dim2")]
                 let ijk = Vector::new(i, j);
@@ -466,7 +470,7 @@ impl VoxelizedVolume {
             }
         }
 
-        result
+        Ok(result)
     }
 
     /// The number of voxel subdivisions along each coordinate axis.

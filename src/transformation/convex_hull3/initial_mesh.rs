@@ -1,5 +1,5 @@
-use super::{ConvexHullError, TriangleFacet};
-use crate::math::Real;
+use super::TriangleFacet;
+use crate::{math::Real, transformation::ConvexHullError};
 use crate::shape::Triangle;
 use crate::transformation;
 use crate::transformation::convex_hull_utils::support_point_id;

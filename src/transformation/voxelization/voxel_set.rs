@@ -110,7 +110,7 @@ impl VoxelSet {
         resolution: u32,
         fill_mode: FillMode,
         keep_voxel_to_primitives_map: bool,
-    ) -> Self {
+    ) -> Result<Self, ConvexHullError> {
         VoxelizedVolume::voxelize(
             points,
             indices,
@@ -118,7 +118,7 @@ impl VoxelSet {
             fill_mode,
             keep_voxel_to_primitives_map,
         )
-        .into()
+        .map(Into::into)
     }
 
     /// The minimal coordinates of the integer bounding-box of the voxels in this set.

@@ -72,7 +72,7 @@ impl VHACD {
             params.fill_mode,
             keep_voxel_to_primitives_map,
             // &self.raycast_mesh,
-        );
+        )?;
 
         let mut result = Self::from_voxels(params, voxelized.into())?;
 

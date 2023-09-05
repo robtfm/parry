@@ -1,6 +1,6 @@
 use super::InitialMesh;
-use super::{ConvexHullError, TriangleFacet};
-use crate::math::Real;
+use super::TriangleFacet;
+use crate::{math::Real, transformation::ConvexHullError};
 use crate::transformation::convex_hull_utils::indexed_support_point_nth;
 use crate::transformation::convex_hull_utils::{indexed_support_point_id, normalize};
 use crate::utils;
