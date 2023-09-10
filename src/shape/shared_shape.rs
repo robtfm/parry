@@ -235,6 +235,7 @@ impl SharedShape {
                 parts.push((Isometry::identity(), convex));
             }
         }
+            return Err(ConvexHullError::InternalError("no hulls generated"));
 
         #[cfg(feature = "dim3")]
         for (vertices, indices) in decomp.compute_exact_convex_hulls(vertices, indices)? {
