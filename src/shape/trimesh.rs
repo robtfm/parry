@@ -285,8 +285,8 @@ bitflags::bitflags! {
 /// A triangle mesh.
 pub struct TriMesh {
     qbvh: Qbvh<u32>,
-    vertices: Vec<Point<Real>>,
-    indices: Vec<[u32; 3]>,
+    pub(crate) vertices: Vec<Point<Real>>,
+    pub(crate) indices: Vec<[u32; 3]>,
     #[cfg(feature = "dim3")]
     pub(crate) pseudo_normals: Option<TriMeshPseudoNormals>,
     topology: Option<TriMeshTopology>,

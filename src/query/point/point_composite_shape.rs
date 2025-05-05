@@ -149,7 +149,15 @@ impl PointQueryWithLocation for TriMesh {
         solid: bool,
     ) -> (PointProjection, Self::Location) {
         self.project_local_point_and_get_location_with_max_dist(point, solid, Real::MAX)
-            .unwrap()
+            .unwrap_or_else(|| {
+                (
+                    PointProjection {
+                        is_inside: false,
+                        point: self.vertices().get(0).copied().unwrap_or_default(),
+                    },
+                    (0, TrianglePointLocation::OnVertex(0)),
+                )
+            })
     }
 
     /// Projects a point on `self`, with a maximum projection distance.
