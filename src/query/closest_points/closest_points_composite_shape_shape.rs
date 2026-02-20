@@ -24,9 +24,8 @@ where
 
     g1.typed_qbvh()
         .traverse_best_first(&mut visitor)
-        .expect("The composite shape must not be empty.")
-        .1
-         .1
+        .map(|(_, cp)| cp.1)
+        .unwrap_or(ClosestPoints::Disjoint)
 }
 
 /// Closest points between a shape and a composite shape.
