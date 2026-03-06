@@ -814,8 +814,12 @@ impl BvhNode {
     /// - [`Bvh::scale`] - Scale an entire BVH tree
     #[inline]
     pub fn scale(&mut self, scale: &Vector<Real>) {
-        self.mins.coords.component_mul_assign(scale);
-        self.maxs.coords.component_mul_assign(scale);
+        let new_mins = self.mins.coords.component_mul(scale);
+        let new_maxs = self.maxs.coords.component_mul(scale);
+        // When scale has negative components, mins/maxs swap on those axes.
+        // Use component-wise inf/sup to maintain the AABB invariant (mins <= maxs).
+        self.mins.coords = new_mins.inf(&new_maxs);
+        self.maxs.coords = new_mins.sup(&new_maxs);
     }
 
     /// Calculates the volume of this node's AABB.
@@ -2001,18 +2005,18 @@ impl Bvh {
 
     /// Scales all AABBs in the tree by the given factors.
     ///
-    /// This multiplies all AABB coordinates (mins and maxs) by the corresponding components
-    /// of the scale vector. This is useful when scaling an entire scene or changing coordinate
-    /// systems.
+    /// Each AABB's coordinates are multiplied by the corresponding scale components, with
+    /// mins and maxs swapped on any axis where the scale is negative to preserve the
+    /// AABB invariant. This is useful when scaling an entire scene or changing coordinate
+    /// systems, including reflections.
     ///
     /// # Arguments
     ///
-    /// * `scale` - Per-axis scale factors (must all be positive)
+    /// * `scale` - Per-axis scale factors. Each component must be non-zero.
     ///
     /// # Panics
     ///
-    /// This function has undefined behavior if any scale component is negative or zero.
-    /// Always use positive scale values.
+    /// Undefined behavior if any scale component is zero (degenerate AABB).
     ///
     /// # Example
     ///
